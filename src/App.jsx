@@ -1,3 +1,4 @@
+/* global __firebase_config, __app_id, __initial_auth_token */
 import React, { useState, useEffect } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'firebase/auth';
@@ -7,13 +8,10 @@ import {
   ChevronLeft,
   ChevronDown,
   RotateCcw, 
-  Copy, 
   BookOpen, 
   Calendar, 
   ScrollText, 
-  Wind, 
   Anchor,
-  Sparkles,
   CheckCircle2,
   Users,
   Compass,
@@ -23,7 +21,6 @@ import {
   CloudSun,
   Globe,
   BarChart3,
-  MessageSquareQuote,
   Loader2,
   User,
   Hourglass,
@@ -33,11 +30,18 @@ import {
   Send
 } from 'lucide-react';
 
-// --- Firebase Configuration ---
-const firebaseConfig = JSON.parse(__firebase_config);
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
+// --- Safe Firebase Configuration ---
+let auth, db;
+try {
+  if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+    const firebaseConfig = typeof __firebase_config === 'string' ? JSON.parse(__firebase_config) : __firebase_config;
+    const app = initializeApp(firebaseConfig);
+    auth = getAuth(app);
+    db = getFirestore(app);
+  }
+} catch (e) {
+  console.warn("Firebase not initialized. Running in local fallback mode.");
+}
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'adventist-pulse-app';
 
 const SDA_DIVISIONS = [
@@ -72,7 +76,7 @@ const ADVENTIST_PILLARS = [
       { label: 'Ontological Trinity', description: 'Three co-eternal, co-equal persons in one Godhead (Classic Orthodoxy).', type: 'Traditionalist', keyword: 'Trinitarian' },
       { label: 'Social Trinity', description: 'Emphasis on the loving relationship and distinct personalities of the three.', type: 'Mainstream', keyword: 'Social Trinitarian' },
       { label: 'Functional/Evolving', description: 'The Trinity is a helpful model, but we should be open to diverse interpretations.', type: 'Progressive', keyword: 'Open Trinitarian' },
-      { label: 'Non-Trinitarian Roots', description: 'Re-evaluating early Adventist semi-Arian views or the Spirit\'s personhood.', type: 'Liberal', keyword: 'Non-Trinitarian' }
+      { label: 'Non-Trinitarian Roots', description: 'Re-evaluating early Adventist semi-Arian views or the Spirit’s personhood.', type: 'Liberal', keyword: 'Non-Trinitarian' }
     ]
   },
   {
@@ -97,8 +101,8 @@ const ADVENTIST_PILLARS = [
     options: [
       { label: 'Conditional/Sanctified', description: 'Grace saves us, but character perfection is required for the final judgment.', type: 'Traditionalist', keyword: 'Last Generation Theology-oriented' },
       { label: 'Balanced/1888', description: 'Salvation is by faith alone, which naturally produces a life of obedience.', type: 'Mainstream', keyword: '1888-Message Centered' },
-      { label: 'Radical Grace', description: 'Absolute assurance in Christ\'s finished work; works are purely a response.', type: 'Progressive', keyword: 'Evangelical Grace-oriented' },
-      { label: 'Universal/Inclusive', description: 'Christ\'s love eventually draws all to Himself, regardless of performance.', type: 'Liberal', keyword: 'Universalist-leaning' }
+      { label: 'Radical Grace', description: 'Absolute assurance in Christ’s finished work; works are purely a response.', type: 'Progressive', keyword: 'Evangelical Grace-oriented' },
+      { label: 'Universal/Inclusive', description: 'Christ’s love eventually draws all to Himself, regardless of performance.', type: 'Liberal', keyword: 'Universalist-leaning' }
     ]
   },
   {
@@ -148,8 +152,8 @@ const ADVENTIST_PILLARS = [
     question: 'What is your stance on 1844 and the Sanctuary?',
     options: [
       { label: 'Classic 1844', description: 'Christ entered the Most Holy Place in 1844 for a literal investigative judgment.', type: 'Traditionalist', keyword: 'Sanctuary Traditionalist' },
-      { label: 'Redemptive/Symbolic', description: '1844 marks a shift in Christ\'s ministry focusing on the certainty of judgment.', type: 'Mainstream', keyword: 'Modified Traditionalist' },
-      { label: 'Evangelical/New Covenant', description: 'Christ\'s work was finished at the Cross; 1844 is for identity, not status change.', type: 'Progressive', keyword: 'Evangelical Adventist' },
+      { label: 'Redemptive/Symbolic', description: '1844 marks a shift in Christ’s ministry focusing on the certainty of judgment.', type: 'Mainstream', keyword: 'Modified Traditionalist' },
+      { label: 'Evangelical/New Covenant', description: 'Christ’s work was finished at the Cross; 1844 is for identity, not status change.', type: 'Progressive', keyword: 'Evangelical Adventist' },
       { label: 'Historical Error', description: 'The doctrine was a "face-saving" measure with little biblical basis.', type: 'Liberal', keyword: 'Revisionist' }
     ]
   },
@@ -199,7 +203,7 @@ const MOCK_COMMENTS = [
 
 const App = () => {
   const [user, setUser] = useState(null);
-  const [step, setStep] = useState(-4); // -4: Division, -3: Age, -2: Gender, -1: Attendance
+  const [step, setStep] = useState(-4);
   const [division, setDivision] = useState('');
   const [age, setAge] = useState(null);
   const [gender, setGender] = useState(null);
@@ -215,18 +219,27 @@ const App = () => {
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState('');
   const [isPostingComment, setIsPostingComment] = useState(false);
-  const [isDbRestricted, setIsDbRestricted] = useState(false);
+  const [isLocalMode, setIsLocalMode] = useState(false);
 
   // Computed state for UI logic
   const isProfileComplete = Object.keys(selections).length === ADVENTIST_PILLARS.length;
 
   // (1) Auth Setup
   useEffect(() => {
+    if (!auth) {
+      setIsLocalMode(true);
+      return;
+    }
     const initAuth = async () => {
-      if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-        await signInWithCustomToken(auth, __initial_auth_token);
-      } else {
-        await signInAnonymously(auth);
+      try {
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+          await signInWithCustomToken(auth, __initial_auth_token);
+        } else {
+          await signInAnonymously(auth);
+        }
+      } catch (err) {
+        console.warn("Auth failed, falling back to local mode.", err);
+        setIsLocalMode(true);
       }
     };
     initAuth();
@@ -236,45 +249,48 @@ const App = () => {
 
   // (2) Fetch Global Community Data
   useEffect(() => {
-    if (!user) return;
+    if (isLocalMode) {
+      setCommunityData(MOCK_PULSES);
+      setComments(MOCK_COMMENTS);
+      return;
+    }
+    if (!user || !db) return;
     
     let unsubscribePulses = () => {};
     let unsubscribeComments = () => {};
-    
+
     try {
       const pulsesCol = collection(db, 'artifacts', appId, 'public', 'data', 'pulses');
       unsubscribePulses = onSnapshot(pulsesCol, (snapshot) => {
         const data = snapshot.docs.map(doc => doc.data());
         setCommunityData(data);
-        setIsDbRestricted(false);
       }, (error) => {
-        console.warn("DB Restricted (Pulses): Using local mock data instead.");
-        setIsDbRestricted(true);
+        console.warn("Firestore error (pulses). Falling back to mock data.", error);
+        setIsLocalMode(true);
         setCommunityData(MOCK_PULSES);
       });
       
       const commentsCol = collection(db, 'artifacts', appId, 'public', 'data', 'pulse_comments');
       unsubscribeComments = onSnapshot(commentsCol, (snapshot) => {
         const data = snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}));
-        // Sort manually (most recent first) to avoid needing composite indexes
         data.sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
         setComments(data);
       }, (error) => {
-        console.warn("DB Restricted (Comments): Using local mock data instead.");
-        setIsDbRestricted(true);
+        console.warn("Firestore error (comments). Falling back to mock data.", error);
+        setIsLocalMode(true);
         setComments(MOCK_COMMENTS);
       });
-    } catch (err) {
-        setIsDbRestricted(true);
-        setCommunityData(MOCK_PULSES);
-        setComments(MOCK_COMMENTS);
+    } catch(e) {
+      setIsLocalMode(true);
+      setCommunityData(MOCK_PULSES);
+      setComments(MOCK_COMMENTS);
     }
 
     return () => {
       unsubscribePulses();
       unsubscribeComments();
     };
-  }, [user]);
+  }, [user, isLocalMode]);
 
   const handleSelect = (pillarId, option) => {
     setSelections(prev => ({ ...prev, [pillarId]: option }));
@@ -286,7 +302,7 @@ const App = () => {
   };
 
   const savePulseToCloud = async () => {
-    if (!user || isSaving) return;
+    if (isSaving) return;
     setIsSaving(true);
     
     const payload = {
@@ -298,15 +314,24 @@ const App = () => {
         acc[key] = selections[key].type;
         return acc;
       }, {}),
-      timestamp: serverTimestamp(),
+      timestamp: db ? serverTimestamp() : new Date(),
     };
 
+    if (isLocalMode || !db || !user) {
+      setCommunityData(prev => [...prev, payload]);
+      setTimeout(() => {
+        setIsSaving(false);
+        setIsFinished(true);
+        setActiveTab('profile');
+      }, 800);
+      return;
+    }
+    
     try {
-      if (isDbRestricted) throw new Error("Local mode active");
       const pulsesCol = collection(db, 'artifacts', appId, 'public', 'data', 'pulses');
       await addDoc(pulsesCol, payload);
     } catch (e) {
-      console.warn("Pulse not saved to cloud due to permissions. Saving locally for this session.");
+      console.warn("Error saving pulse to cloud. Adding locally.", e);
       setCommunityData(prev => [...prev, payload]);
     } finally {
       setIsSaving(false);
@@ -316,30 +341,32 @@ const App = () => {
   };
 
   const handlePostComment = async () => {
-    if (!user || !newComment.trim() || isPostingComment) return;
+    if (!newComment.trim() || isPostingComment) return;
     setIsPostingComment(true);
     
     const commentPayload = {
        text: newComment.trim(),
-       userId: user.uid,
+       userId: user ? user.uid : 'local-user',
        lean: isProfileComplete ? calculateLean() : 'Observer',
-       timestamp: serverTimestamp()
+       timestamp: db ? serverTimestamp() : { toMillis: () => Date.now() }
     };
 
+    if (isLocalMode || !db || !user) {
+       setComments(prev => [{...commentPayload, id: Math.random().toString()}, ...prev]);
+       setNewComment('');
+       setIsPostingComment(false);
+       return;
+    }
+
     try {
-      if (isDbRestricted) throw new Error("Local mode active");
       const commentsCol = collection(db, 'artifacts', appId, 'public', 'data', 'pulse_comments');
       await addDoc(commentsCol, commentPayload);
-    } catch (e) {
-      console.warn("Comment not saved to cloud due to permissions. Adding locally.");
-      const localComment = {
-          ...commentPayload,
-          id: Math.random().toString(36).substring(7),
-          timestamp: { toMillis: () => Date.now() }
-      };
-      setComments(prev => [localComment, ...prev]);
-    } finally {
       setNewComment('');
+    } catch (e) {
+      console.warn("Error posting comment. Adding locally.", e);
+      setComments(prev => [{...commentPayload, id: Math.random().toString(), timestamp: { toMillis: () => Date.now() }}, ...prev]);
+      setNewComment('');
+    } finally {
       setIsPostingComment(false);
     }
   };
@@ -728,7 +755,7 @@ const App = () => {
                           <div className="flex justify-between items-center mb-2">
                             <span className="text-[10px] font-black text-indigo-900 px-2.5 py-1 bg-indigo-100 rounded-md uppercase tracking-wider">{c.lean}</span>
                             <span className="text-[10px] text-slate-400 font-medium">
-                              {c.timestamp ? new Date(c.timestamp.toMillis()).toLocaleDateString() : 'Just now'}
+                              {c.timestamp && typeof c.timestamp.toMillis === 'function' ? new Date(c.timestamp.toMillis()).toLocaleDateString() : 'Just now'}
                             </span>
                           </div>
                           <p className="text-sm text-slate-700 leading-relaxed">{c.text}</p>
