@@ -30,15 +30,27 @@ import {
   Send
 } from 'lucide-react';
 
-// --- Safe Firebase Configuration ---
-let auth, db;
-try {
-  if (typeof __firebase_config !== 'undefined' && __firebase_config) {
-    const firebaseConfig = typeof __firebase_config === 'string' ? JSON.parse(__firebase_config) : __firebase_config;
-    const app = initializeApp(firebaseConfig);
-    auth = getAuth(app);
-    db = getFirestore(app);
-  }
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyCCC6G1iTb_OLAgBhPN7TqmoUh7Clj2QWU",
+  authDomain: "adventist-pulse.firebaseapp.com",
+  projectId: "adventist-pulse",
+  storageBucket: "adventist-pulse.firebasestorage.app",
+  messagingSenderId: "340916532159",
+  appId: "1:340916532159:web:2b179df7359906da6c270a",
+  measurementId: "G-J6YWS9R0LE"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);  }
 } catch (e) {
   console.warn("Firebase not initialized. Running in local fallback mode.");
 }
