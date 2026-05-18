@@ -30,7 +30,20 @@ import {
   Send
 } from 'lucide-react';
 
-// --- Safe Firebase Configuration ---
+const firebaseConfig = {
+  apiKey: "AIzaSyCCC6G1iTb_OLAgBhPN7TqmoUh7Clj2QWU",
+  authDomain: "adventist-pulse.firebaseapp.com",
+  projectId: "adventist-pulse",
+  storageBucket: "adventist-pulse.firebasestorage.app",
+  messagingSenderId: "340916532159",
+  appId: "1:340916532159:web:2b179df7359906da6c270a",
+  measurementId: "G-J6YWS9R0LE"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
 let app, auth, db;
 try {
   const firebaseConfig = {
@@ -191,22 +204,6 @@ const ADVENTIST_PILLARS = [
   }
 ];
 
-const MOCK_PULSES = [
-  { selections: { trinity: 'Mainstream', creation: 'Traditionalist', salvation: 'Mainstream', death: 'Traditionalist', bible: 'Mainstream', inspiration: 'Mainstream', sanctuary: 'Mainstream', sabbath: 'Traditionalist', remnant: 'Mainstream' } },
-  { selections: { trinity: 'Traditionalist', creation: 'Traditionalist', salvation: 'Traditionalist', death: 'Traditionalist', bible: 'Traditionalist', inspiration: 'Traditionalist', sanctuary: 'Traditionalist', sabbath: 'Traditionalist', remnant: 'Traditionalist' } },
-  { selections: { trinity: 'Progressive', creation: 'Mainstream', salvation: 'Progressive', death: 'Progressive', bible: 'Progressive', inspiration: 'Progressive', sanctuary: 'Progressive', sabbath: 'Progressive', remnant: 'Progressive' } },
-  { selections: { trinity: 'Mainstream', creation: 'Progressive', salvation: 'Mainstream', death: 'Traditionalist', bible: 'Mainstream', inspiration: 'Mainstream', sanctuary: 'Mainstream', sabbath: 'Mainstream', remnant: 'Mainstream' } },
-  { selections: { trinity: 'Traditionalist', creation: 'Traditionalist', salvation: 'Traditionalist', death: 'Traditionalist', bible: 'Traditionalist', inspiration: 'Traditionalist', sanctuary: 'Traditionalist', sabbath: 'Traditionalist', remnant: 'Traditionalist' } },
-  { selections: { trinity: 'Progressive', creation: 'Progressive', salvation: 'Progressive', death: 'Progressive', bible: 'Progressive', inspiration: 'Progressive', sanctuary: 'Progressive', sabbath: 'Progressive', remnant: 'Progressive' } },
-  { selections: { trinity: 'Liberal', creation: 'Liberal', salvation: 'Liberal', death: 'Liberal', bible: 'Liberal', inspiration: 'Liberal', sanctuary: 'Liberal', sabbath: 'Liberal', remnant: 'Liberal' } },
-];
-
-const MOCK_COMMENTS = [
-  { id: '1', text: "It's fascinating to see how geographically diverse our theological approaches are becoming.", lean: "Mainstream", timestamp: { toMillis: () => Date.now() - 86400000 } },
-  { id: '2', text: "I believe returning to our historic roots is exactly what the church needs right now.", lean: "Traditionalist", timestamp: { toMillis: () => Date.now() - 172800000 } },
-  { id: '3', text: "We need to ensure our grace theology is as robust as our Sabbath theology.", lean: "Progressive", timestamp: { toMillis: () => Date.now() - 3600000 } }
-];
-
 const App = () => {
   const [user, setUser] = useState(null);
   const [step, setStep] = useState(-4);
@@ -225,74 +222,39 @@ const App = () => {
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState('');
   const [isPostingComment, setIsPostingComment] = useState(false);
-  const [isLocalMode, setIsLocalMode] = useState(false);
 
   // Computed state for UI logic
   const isProfileComplete = Object.keys(selections).length === ADVENTIST_PILLARS.length;
 
   // (1) Auth Setup
   useEffect(() => {
-    if (!auth) {
-      setIsLocalMode(true);
-      return;
-    }
-    const initAuth = async () => {
-      try {
-        await signInAnonymously(auth);
-      } catch (err) {
-        console.warn("Auth failed, falling back to local mode.", err);
-        setIsLocalMode(true);
-      }
-    };
-    initAuth();
+    signInAnonymously(auth).catch(err => console.error("Auth failed:", err));
     const unsubscribe = onAuthStateChanged(auth, setUser);
     return () => unsubscribe();
   }, []);
 
   // (2) Fetch Global Community Data
   useEffect(() => {
-    if (isLocalMode) {
-      setCommunityData(MOCK_PULSES);
-      setComments(MOCK_COMMENTS);
-      return;
-    }
-    if (!user || !db) return;
+    if (!user) return;
     
-    let unsubscribePulses = () => {};
-    let unsubscribeComments = () => {};
-
-    try {
-      const pulsesCol = collection(db, 'artifacts', appId, 'public', 'data', 'pulses');
-      unsubscribePulses = onSnapshot(pulsesCol, (snapshot) => {
-        const data = snapshot.docs.map(doc => doc.data());
-        setCommunityData(data);
-      }, (error) => {
-        console.warn("Firestore error (pulses). Falling back to mock data.", error);
-        setIsLocalMode(true);
-        setCommunityData(MOCK_PULSES);
-      });
-      
-      const commentsCol = collection(db, 'artifacts', appId, 'public', 'data', 'pulse_comments');
-      unsubscribeComments = onSnapshot(commentsCol, (snapshot) => {
-        const data = snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}));
-        data.sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
-        setComments(data);
-      }, (error) => {
-        console.warn("Firestore error (comments). Falling back to mock data.", error);
-        setIsLocalMode(true);
-        setComments(MOCK_COMMENTS);
-      });
-    } catch(e) {
-      setIsLocalMode(true);
-      setCommunityData(MOCK_PULSES);
-      setComments(MOCK_COMMENTS);
-    }
+    const pulsesCol = collection(db, 'pulses');
+    const unsubscribePulses = onSnapshot(pulsesCol, (snapshot) => {
+      const data = snapshot.docs.map(doc => doc.data());
+      setCommunityData(data);
+    }, (error) => console.error("Firestore error (pulses):", error));
+    
+    const commentsCol = collection(db, 'pulse_comments');
+    const unsubscribeComments = onSnapshot(commentsCol, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}));
+      data.sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
+      setComments(data);
+    }, (error) => console.error("Firestore error (comments):", error));
 
     return () => {
       unsubscribePulses();
       unsubscribeComments();
     };
-  }, [user, isLocalMode]);
+  }, [user]);
 
   const handleSelect = (pillarId, option) => {
     setSelections(prev => ({ ...prev, [pillarId]: option }));
@@ -304,7 +266,7 @@ const App = () => {
   };
 
   const savePulseToCloud = async () => {
-    if (isSaving) return;
+    if (!user || isSaving) return;
     setIsSaving(true);
     
     const payload = {
@@ -316,25 +278,14 @@ const App = () => {
         acc[key] = selections[key].type;
         return acc;
       }, {}),
-      timestamp: db ? serverTimestamp() : new Date(),
+      timestamp: serverTimestamp(),
     };
-
-    if (isLocalMode || !db || !user) {
-      setCommunityData(prev => [...prev, payload]);
-      setTimeout(() => {
-        setIsSaving(false);
-        setIsFinished(true);
-        setActiveTab('profile');
-      }, 800);
-      return;
-    }
     
     try {
-      const pulsesCol = collection(db, 'artifacts', appId, 'public', 'data', 'pulses');
+      const pulsesCol = collection(db, 'pulses');
       await addDoc(pulsesCol, payload);
     } catch (e) {
-      console.warn("Error saving pulse to cloud. Adding locally.", e);
-      setCommunityData(prev => [...prev, payload]);
+      console.error("Error saving pulse:", e);
     } finally {
       setIsSaving(false);
       setIsFinished(true);
@@ -348,26 +299,17 @@ const App = () => {
     
     const commentPayload = {
        text: newComment.trim(),
-       userId: user ? user.uid : 'local-user',
+       userId: user.uid,
        lean: isProfileComplete ? calculateLean() : 'Observer',
-       timestamp: db ? serverTimestamp() : { toMillis: () => Date.now() }
+       timestamp: serverTimestamp()
     };
 
-    if (isLocalMode || !db || !user) {
-       setComments(prev => [{...commentPayload, id: Math.random().toString()}, ...prev]);
-       setNewComment('');
-       setIsPostingComment(false);
-       return;
-    }
-
     try {
-      const commentsCol = collection(db, 'artifacts', appId, 'public', 'data', 'pulse_comments');
+      const commentsCol = collection(db, 'pulse_comments');
       await addDoc(commentsCol, commentPayload);
       setNewComment('');
     } catch (e) {
-      console.warn("Error posting comment. Adding locally.", e);
-      setComments(prev => [{...commentPayload, id: Math.random().toString(), timestamp: { toMillis: () => Date.now() }}, ...prev]);
-      setNewComment('');
+      console.error("Error posting comment:", e);
     } finally {
       setIsPostingComment(false);
     }
