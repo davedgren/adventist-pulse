@@ -44,25 +44,6 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-let app, auth, db;
-try {
-  const firebaseConfig = {
-    apiKey: "AIzaSyCCC6G1iTb_OLAgBhPN7TqmoUh7Clj2QWU",
-    authDomain: "adventist-pulse.firebaseapp.com",
-    projectId: "adventist-pulse",
-    storageBucket: "adventist-pulse.firebasestorage.app",
-    messagingSenderId: "340916532159",
-    appId: "1:340916532159:web:2b179df7359906da6c270a",
-    measurementId: "G-J6YWS9R0LE"
-  };
-  app = initializeApp(firebaseConfig);
-  auth = getAuth(app);
-  db = getFirestore(app);
-} catch (e) {
-  console.warn("Firebase not initialized. Running in local fallback mode.");
-}
-const appId = 'adventist-pulse';
-
 const SDA_DIVISIONS = [
   "East-Central Africa Division (ECD)",
   "Euro-Asia Division (ESD)",
