@@ -1,7 +1,7 @@
 /* global __firebase_config, __app_id, __initial_auth_token */
 import React, { useState, useEffect } from 'react';
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'firebase/auth';
+import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, collection, addDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
 import { 
   ChevronRight, 
@@ -30,22 +30,25 @@ import {
   Send
 } from 'lucide-react';
 
-};const firebaseConfig = {
-apiKey: "AIzaSyCCC6G1iTb_OLAgBhPN7TqmoUh7Clj2QWU",
-authDomain: "adventist-pulse.firebaseapp.com",
-projectId: "adventist-pulse",
-storageBucket: "adventist-pulse.firebasestorage.app",
-messagingSenderId: "340916532159",
-appId: "1:340916532159:web:2b179df7359906da6c270a",
-measurementId: "G-J6YWS9R0LE"
-};
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);  }
+// --- Safe Firebase Configuration ---
+let app, auth, db;
+try {
+  const firebaseConfig = {
+    apiKey: "AIzaSyCCC6G1iTb_OLAgBhPN7TqmoUh7Clj2QWU",
+    authDomain: "adventist-pulse.firebaseapp.com",
+    projectId: "adventist-pulse",
+    storageBucket: "adventist-pulse.firebasestorage.app",
+    messagingSenderId: "340916532159",
+    appId: "1:340916532159:web:2b179df7359906da6c270a",
+    measurementId: "G-J6YWS9R0LE"
+  };
+  app = initializeApp(firebaseConfig);
+  auth = getAuth(app);
+  db = getFirestore(app);
 } catch (e) {
   console.warn("Firebase not initialized. Running in local fallback mode.");
 }
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'adventist-pulse-app';
+const appId = 'adventist-pulse';
 
 const SDA_DIVISIONS = [
   "East-Central Africa Division (ECD)",
@@ -235,11 +238,7 @@ const App = () => {
     }
     const initAuth = async () => {
       try {
-        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-          await signInWithCustomToken(auth, __initial_auth_token);
-        } else {
-          await signInAnonymously(auth);
-        }
+        await signInAnonymously(auth);
       } catch (err) {
         console.warn("Auth failed, falling back to local mode.", err);
         setIsLocalMode(true);
